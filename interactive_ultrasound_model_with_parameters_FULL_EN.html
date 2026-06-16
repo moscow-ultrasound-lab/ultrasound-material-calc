@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interactive Immersion Ultrasound System Model</title>
+<style>
+:root{
+  --bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#64748b;--blue:#0b57d0;--blue2:#70b7ff;
+  --border:#d7dfef;--green:#17803d;--orange:#b45309;--red:#b42318;--purple:#6d28d9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{background:white;border-bottom:1px solid var(--border);padding:18px 22px}
+h1{font-size:24px;margin:0 0 6px}
+header p{margin:0;color:var(--muted)}
+.grid{max-width:1480px;margin:auto;padding:16px;display:grid;grid-template-columns:380px minmax(720px,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;box-shadow:0 8px 26px rgba(30,50,90,.06)}
+.controls{padding:16px;display:flex;flex-direction:column;gap:14px}
+.section{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fbfdff}
+.section h2{font-size:17px;margin:0 0 10px}
+label{display:block;font-weight:700;margin:10px 0 4px}
+input[type=range]{width:100%}
+.row{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px}
+.value{font-weight:900;color:var(--blue)}
+button{border:1px solid #c9d7f2;background:white;border-radius:12px;padding:10px 12px;color:#0b3d91;font-weight:750;cursor:pointer}
+button.active,button:hover{background:var(--blue);color:white;border-color:var(--blue)}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.main{padding:14px;display:grid;grid-template-rows:auto auto;gap:14px}
+.top{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+svg{width:100%;height:auto;display:block}
+.panelTitle{font-weight:900;margin:0 0 8px;font-size:18px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.metric{border:1px solid var(--border);border-radius:14px;padding:12px;background:#fff}
+.metric .name{font-size:13px;color:var(--muted);margin-bottom:4px}
+.metric .num{font-size:23px;font-weight:950}
+.note{font-size:13px;color:var(--muted);line-height:1.45}
+.formula{background:#f3f6fb;border:1px solid #dde7f7;border-radius:12px;padding:10px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;line-height:1.5}
+.canvasCard{padding:12px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-top:8px}
+.legend span{display:flex;align-items:center;gap:6px}
+.sw{width:18px;height:4px;border-radius:5px;background:var(--blue);display:inline-block}.sw.gray{background:#777}.sw.orange{background:#f59e0b}.sw.green{background:#22c55e}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tab{padding:8px 10px;font-size:13px}
+.hidden{display:none}
+.tooltip{position:fixed;pointer-events:none;background:#111827;color:white;padding:8px 10px;border-radius:10px;font-size:13px;max-width:260px;display:none;z-index:10;box-shadow:0 8px 22px rgba(0,0,0,.18)}
+.comp{cursor:pointer;transition:.15s}.comp:hover{filter:drop-shadow(0 0 6px rgba(11,87,208,.4))}
+.flow{stroke-dasharray:12 8;animation:dash 1s linear infinite}@keyframes dash{to{stroke-dashoffset:-40}}
+.wavePulse{animation:pulse 1.2s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}
+@media(max-width:1120px){.grid{grid-template-columns:1fr}.top{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Interactive Immersion Ultrasound System Model</h1>
+  <p>Adjust the sliders and observe how RF signals, delay, amplitude, calculated velocity, and velocity/attenuation maps change.</p>
+</header>
+
+<div class="grid">
+  <aside class="card controls">
+    <div class="section">
+      <h2>Operating Mode</h2>
+      <div class="buttons">
+        <button id="modeWater" class="active">Without Sample</button>
+        <button id="modeSample">With Sample</button>
+      </div>
+      <p class="note">First,  <b>s₀(t)</b>  is recorded in water. Then the sample is inserted and  <b>s₁(t)</b>.</p>
+    </div>
+
+    <div class="section">
+      <h2>Medium and Sample Parameters</h2>
+
+      <label>Water Temperature: <span id="tempVal" class="value"></span></label>
+      <input id="temp" type="range" min="10" max="40" step="0.1" value="25" />
+      <div class="row"><span>10 °C</span><span>40 °C</span></div>
+
+      <label>Tx–Rx Distance L: <span id="distVal" class="value"></span></label>
+      <input id="dist" type="range" min="60" max="180" step="1" value="120" />
+      <div class="row"><span>60 mm</span><span>180 mm</span></div>
+
+      <label>Sample Thickness d: <span id="thickVal" class="value"></span></label>
+      <input id="thick" type="range" min="3" max="30" step="0.1" value="10" />
+      <div class="row"><span>3 mm</span><span>30 mm</span></div>
+
+      <label>Velocity in Sample: <span id="speedVal" class="value"></span></label>
+      <input id="speed" type="range" min="1350" max="3000" step="1" value="1540" />
+      <div class="row"><span>soft tissue</span><span>solid material</span></div>
+
+      <label>Sample Attenuation: <span id="attVal" class="value"></span></label>
+      <input id="atten" type="range" min="0" max="8" step="0.1" value="1.2" />
+      <div class="row"><span>0 dB/cm</span><span>8 dB/cm</span></div>
+
+      <label>Map Inhomogeneity: <span id="inhVal" class="value"></span></label>
+      <input id="inhom" type="range" min="0" max="1" step="0.01" value="0.25" />
+      <div class="row"><span>uniform</span><span>strong variations</span></div>
+    </div>
+
+    <div class="section">
+      <h2>What the Sliders Show</h2>
+      <p class="note"><b>Temperature</b> changes the speed of sound in water. <b>Thickness</b> and <b>sample velocity</b> change the delay Δt. <b>Attenuation</b> reduces the amplitude of signal s₁(t). <b>Inhomogeneity</b> shows how maps across the sample area may look.</p>
+    </div>
+
+    <div class="section formula">
+      c<sub>w</sub>(T) ≈ 1402.388 + 5.038T − 0.058T² + 0.000334T³<br>
+      t₀ = L / c<sub>w</sub><br>
+      t₁ = (L − d)/c<sub>w</sub> + d/c<sub>s</sub><br>
+      Δt = t₁ − t₀
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <section class="card canvasCard">
+        <p class="panelTitle">1. System Layout and Signal Propagation</p>
+        <svg id="setup" viewBox="0 0 900 470">
+          <defs>
+            <marker id="arrB" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3z" fill="#0b57d0"/></marker>
+            <marker id="arrK" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3z" fill="#222"/></marker>
+            <linearGradient id="waterG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e8f4ff"/><stop offset="1" stop-color="#cfe8ff"/></linearGradient>
+            <linearGradient id="metalG" x1="0" x2="1"><stop offset="0" stop-color="#aeb4bf"/><stop offset=".45" stop-color="#fff"/><stop offset="1" stop-color="#8b929e"/></linearGradient>
+          </defs>
+          <rect x="130" y="80" width="640" height="260" rx="18" fill="url(#waterG)" stroke="#0b57d0" stroke-width="3"/>
+          <path d="M155 115 C210 95,250 130,300 112 S410 97,475 115 S610 132,750 116" fill="none" stroke="#93c5fd" stroke-width="3"/>
+          <text x="450" y="110" text-anchor="middle" fill="#0b57d0" font-weight="900" font-size="20">water bath</text>
+
+          <g id="genC" class="comp" data-tip="The generator produces an electrical pulse or short burst and is connected to Tx.">
+            <rect x="25" y="370" width="145" height="70" rx="12" fill="#fff" stroke="#222" stroke-width="2"/>
+            <rect x="42" y="388" width="52" height="26" rx="4" fill="#111827"/>
+            <path d="M47 402 L58 402 L58 392 L75 392 L75 414 L90 414" fill="none" stroke="#67e8f9" stroke-width="2"/>
+            <text x="97" y="456" text-anchor="middle" font-weight="900">Generator</text>
+          </g>
+
+          <g id="txC" class="comp" data-tip="Tx is the transmitting transducer. It converts an electrical signal into an ultrasonic wave.">
+            <rect x="105" y="200" width="55" height="45" rx="7" fill="#333"/>
+            <rect x="158" y="190" width="70" height="65" rx="8" fill="url(#metalG)" stroke="#222" stroke-width="2"/>
+            <text x="193" y="183" text-anchor="middle" font-weight="900" font-size="22">Tx</text>
+          </g>
+
+          <g id="rxC" class="comp" data-tip="Rx is the receiving transducer. It receives the wave and outputs an RF signal.">
+            <rect x="740" y="200" width="55" height="45" rx="7" fill="#333"/>
+            <rect x="672" y="190" width="70" height="65" rx="8" fill="url(#metalG)" stroke="#222" stroke-width="2"/>
+            <text x="707" y="183" text-anchor="middle" font-weight="900" font-size="22">Rx</text>
+          </g>
+
+          <g id="holderC" class="comp" data-tip="The holder secures the sample at the edges. The central path remains open for ultrasound.">
+            <rect x="402" y="168" width="96" height="110" fill="#fff" stroke="#555" stroke-width="3"/>
+            <rect x="375" y="150" width="150" height="18" rx="4" fill="#555"/>
+            <rect x="375" y="278" width="150" height="18" rx="4" fill="#555"/>
+            <rect id="sampleRect" x="424" y="190" width="52" height="66" fill="#f2efe6" stroke="#222" stroke-width="2"/>
+            <text x="450" y="315" text-anchor="middle" font-size="14" font-weight="800">sample</text>
+          </g>
+
+          <line x1="195" y1="222" x2="707" y2="222" stroke="#0b57d0" stroke-width="3" stroke-dasharray="9 7"/>
+          <text x="570" y="213" fill="#0b57d0" font-weight="800" font-size="14">acoustic axis</text>
+
+          <path id="ac1" class="flow" d="M230 222 L424 222" stroke="#0b57d0" stroke-width="5" fill="none" marker-end="url(#arrB)"/>
+          <path id="ac2" class="flow" d="M476 222 L672 222" stroke="#0b57d0" stroke-width="5" fill="none" marker-end="url(#arrB)"/>
+
+          <path class="wavePulse" d="M238 198 C270 215,270 230,238 247" fill="none" stroke="#0b57d0" stroke-width="3"/>
+          <path class="wavePulse" d="M258 188 C305 215,305 230,258 257" fill="none" stroke="#0b57d0" stroke-width="3"/>
+          <path class="wavePulse" d="M662 198 C630 215,630 230,662 247" fill="none" stroke="#0b57d0" stroke-width="3"/>
+          <path class="wavePulse" d="M642 188 C595 215,595 230,642 257" fill="none" stroke="#0b57d0" stroke-width="3"/>
+
+          <g id="scopeC" class="comp" data-tip="The oscilloscope/ADC records the RF signal. Delay and amplitude are determined from its waveform.">
+            <rect x="725" y="366" width="150" height="80" rx="12" fill="#fff" stroke="#222" stroke-width="2"/>
+            <rect x="742" y="384" width="65" height="42" rx="4" fill="#111827"/>
+            <path d="M748 407 C760 360,775 450,790 395 S803 415,805 405" fill="none" stroke="#dbeafe" stroke-width="2"/>
+            <circle cx="835" cy="398" r="7" fill="#eee" stroke="#777"/><circle cx="855" cy="398" r="7" fill="#eee" stroke="#777"/>
+            <text x="800" y="463" text-anchor="middle" font-weight="900">Oscilloscope</text>
+          </g>
+
+          <g id="pcC" class="comp" data-tip="The PC stores signals and builds velocity and attenuation graphs/maps.">
+            <rect x="540" y="373" width="130" height="66" rx="8" fill="#d7dce6" stroke="#222" stroke-width="2"/>
+            <rect x="552" y="384" width="106" height="41" rx="4" fill="#f8fbff" stroke="#64748b"/>
+            <path d="M558 410 C575 380,595 435,615 400 S645 415,655 405" fill="none" stroke="#0b57d0" stroke-width="2"/>
+            <text x="605" y="457" text-anchor="middle" font-weight="900">PC</text>
+          </g>
+
+          <g id="tempC" class="comp" data-tip="Temperature control is required because the speed of sound in water depends on temperature.">
+            <rect x="405" y="365" width="95" height="75" rx="12" fill="#fff" stroke="#0b57d0" stroke-width="2"/>
+            <rect x="422" y="385" width="60" height="24" rx="5" fill="#111827"/>
+            <text id="miniTemp" x="452" y="403" text-anchor="middle" fill="#fff" font-size="15" font-weight="900">25.0°</text>
+            <line x1="452" y1="350" x2="452" y2="300" stroke="#0b57d0" stroke-width="3" stroke-dasharray="8 6"/>
+            <text x="452" y="458" text-anchor="middle" font-weight="900">Temperature Control</text>
+          </g>
+
+          <path id="g2tx" class="flow" d="M170 405 C205 405,190 260,170 238" stroke="#222" stroke-width="4" fill="none" marker-end="url(#arrK)"/>
+          <path id="rx2s" class="flow" d="M742 238 C790 280,800 330,800 366" stroke="#222" stroke-width="4" fill="none" marker-end="url(#arrK)"/>
+          <path id="s2pc" class="flow" d="M725 408 L670 408" stroke="#222" stroke-width="4" fill="none" marker-end="url(#arrK)"/>
+
+          <text x="278" y="360" fill="#0b57d0" font-size="14" font-weight="800">ultrasonic wave</text>
+          <text x="215" y="392" font-size="13" font-weight="800">BNC 50 Ohm</text>
+          <text x="745" y="346" font-size="13" font-weight="800">RF signal</text>
+          <text x="690" y="397" font-size="13" font-weight="800">USB/LAN</text>
+        </svg>
+        <div class="legend">
+          <span><i class="sw"></i> ultrasound</span>
+          <span><i class="sw gray"></i> electrical signal</span>
+          <span><i class="sw orange"></i> delay change</span>
+          <span><i class="sw green"></i> map variation</span>
+        </div>
+      </section>
+
+      <section class="card canvasCard">
+        <p class="panelTitle">2. Calculated Values</p>
+        <div class="metrics">
+          <div class="metric"><div class="name">Velocity in Water c<sub>w</sub></div><div id="cwM" class="num">—</div></div>
+          <div class="metric"><div class="name">Time in Water t₀</div><div id="t0M" class="num">—</div></div>
+          <div class="metric"><div class="name">Time Through Sample t₁</div><div id="t1M" class="num">—</div></div>
+          <div class="metric"><div class="name">Delay Δt</div><div id="dtM" class="num">—</div></div>
+          <div class="metric"><div class="name">Relative Amplitude s₁</div><div id="ampM" class="num">—</div></div>
+          <div class="metric"><div class="name">Conclusion</div><div id="outM" class="num" style="font-size:18px">—</div></div>
+        </div>
+        <p id="explain" class="note" style="margin-top:12px"></p>
+      </section>
+    </div>
+
+    <section class="card canvasCard">
+      <div class="tabs">
+        <button class="tab active" data-tab="signals">RF Signals</button>
+        <button class="tab" data-tab="tempplot">Water Temperature</button>
+        <button class="tab" data-tab="maps">Velocity and Attenuation Maps</button>
+      </div>
+
+      <div id="signalsTab">
+        <p class="panelTitle">3. What We See on the Oscilloscope</p>
+        <svg id="signals" viewBox="0 0 1040 350">
+          <defs><marker id="arrSmall" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3z" fill="#222"/></marker></defs>
+          <rect x="20" y="20" width="1000" height="300" rx="16" fill="#fff" stroke="#d7dfef"/>
+          <line x1="80" y1="170" x2="970" y2="170" stroke="#222" marker-end="url(#arrSmall)"/>
+          <line x1="80" y1="50" x2="80" y2="295" stroke="#222" marker-end="url(#arrSmall)"/>
+          <text x="975" y="190" font-size="16">t, µs</text>
+          <text x="38" y="58" font-size="16">A</text>
+          <g stroke="#eef2f7" stroke-width="1">
+            <line x1="80" y1="90" x2="970" y2="90"/><line x1="80" y1="250" x2="970" y2="250"/>
+            <line x1="250" y1="50" x2="250" y2="295"/><line x1="420" y1="50" x2="420" y2="295"/><line x1="590" y1="50" x2="590" y2="295"/><line x1="760" y1="50" x2="760" y2="295"/><line x1="930" y1="50" x2="930" y2="295"/>
+          </g>
+          <path id="wave0" d="" stroke="#0b57d0" stroke-width="3" fill="none"/>
+          <path id="wave1" d="" stroke="#707b91" stroke-width="3" fill="none"/>
+          <line id="v0" x1="0" x2="0" y1="55" y2="290" stroke="#0b57d0" stroke-width="2" stroke-dasharray="8 6"/>
+          <line id="v1" x1="0" x2="0" y1="55" y2="290" stroke="#707b91" stroke-width="2" stroke-dasharray="8 6"/>
+          <line id="dtArrow" x1="0" x2="0" y1="305" y2="305" stroke="#222" stroke-width="2" marker-start="url(#arrSmall)" marker-end="url(#arrSmall)"/>
+          <text id="dtLabel" x="0" y="337" text-anchor="middle" font-size="18" font-weight="900">Δt</text>
+          <text x="820" y="82" fill="#0b57d0" font-size="16" font-weight="800">s₀(t) — water</text>
+          <text x="820" y="108" fill="#707b91" font-size="16" font-weight="800">s₁(t) — through sample</text>
+        </svg>
+        <p class="note">Если скорость в образце выше скорости в воде, сигнал through sample приходит раньше. Если ниже — позже. При большем затухании амплитуда s₁(t) уменьшается.</p>
+      </div>
+
+      <div id="tempplotTab" class="hidden">
+        <p class="panelTitle">3. How Temperature Changes the Speed of Sound in Water</p>
+        <svg id="tempSvg" viewBox="0 0 1040 350">
+          <rect x="20" y="20" width="1000" height="300" rx="16" fill="#fff" stroke="#d7dfef"/>
+          <line x1="90" y1="280" x2="970" y2="280" stroke="#222" marker-end="url(#arrSmall)"/>
+          <line x1="90" y1="280" x2="90" y2="55" stroke="#222" marker-end="url(#arrSmall)"/>
+          <text x="965" y="308" font-size="16">T, °C</text>
+          <text x="35" y="60" font-size="16">c₍w₎, m/s</text>
+          <g id="tempGrid" stroke="#eef2f7"></g>
+          <path id="tempCurve" fill="none" stroke="#0b57d0" stroke-width="3"/>
+          <circle id="tempPoint" r="7" fill="#f59e0b" stroke="#7c2d12" stroke-width="2"/>
+          <text id="tempPointLabel" font-size="16" font-weight="900" fill="#7c2d12"></text>
+        </svg>
+        <p class="note">Because of this dependence, temperature must be recorded before each measurement: a temperature error causes an error in water velocity and then propagates into the sample velocity calculation.</p>
+      </div>
+
+      <div id="mapsTab" class="hidden">
+        <p class="panelTitle">3. Example Maps Expected After Scanning</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <svg id="speedMap" viewBox="0 0 470 360"></svg>
+          <svg id="attenMap" viewBox="0 0 470 360"></svg>
+        </div>
+        <p class="note">In a real experiment, each map cell is obtained from an RF signal measurement at a specific sample location. This map is simulated to illustrate how material inhomogeneities appear as velocity or attenuation spots.</p>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const st = {mode:'water', tab:'signals'};
+const controls = ['temp','dist','thick','speed','atten','inhom'].map(id=>$(id));
+
+function cw(T){
+  return 1402.388 + 5.038*T - 0.058*T*T + 0.000334*T*T*T;
+}
+function fmt(n, d=1){ return Number(n).toFixed(d).replace('.', ','); }
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+
+function signalPath(t0, amp, colorShift=0){
+  const x0=80, y0=170, sx=5.1, scale=68;
+  let d='';
+  for(let i=0;i<600;i++){
+    const t = i*0.28;
+    const env = Math.exp(-Math.pow((t-t0)/6.5,2));
+    const sig = amp*env*Math.sin(2*Math.PI*1.25*(t-t0));
+    const x = x0 + t*sx;
+    const y = y0 - sig*scale;
+    d += (i?'L':'M') + x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  return d;
+}
+function updateSignals(t0us,t1us,amp1){
+  const t0p=clamp(t0us, 5, 170), t1p=clamp(t1us, 5, 170);
+  $('wave0').setAttribute('d', signalPath(t0p,1));
+  $('wave1').setAttribute('d', signalPath(t1p,amp1));
+  const sx=5.1, xbase=80;
+  const x0=xbase+t0p*sx, x1=xbase+t1p*sx;
+  $('v0').setAttribute('x1',x0);$('v0').setAttribute('x2',x0);
+  $('v1').setAttribute('x1',x1);$('v1').setAttribute('x2',x1);
+  $('dtArrow').setAttribute('x1',Math.min(x0,x1));$('dtArrow').setAttribute('x2',Math.max(x0,x1));
+  $('dtLabel').setAttribute('x',(x0+x1)/2);
+  $('dtLabel').textContent='Δt = '+fmt(t1us-t0us,2)+' µs';
+  $('wave1').style.display = st.mode==='sample' ? 'block':'none';
+  $('v1').style.display = st.mode==='sample' ? 'block':'none';
+  $('dtArrow').style.display = st.mode==='sample' ? 'block':'none';
+  $('dtLabel').style.display = st.mode==='sample' ? 'block':'none';
+}
+function updateTempPlot(T,cwv){
+  const svg=$('tempSvg');
+  const xmin=10,xmax=40,ymin=1440,ymax=1565;
+  const x=t=>90+(t-xmin)/(xmax-xmin)*860;
+  const y=v=>280-(v-ymin)/(ymax-ymin)*225;
+  let path='';
+  for(let i=0;i<=300;i++){
+    const t=xmin+(xmax-xmin)*i/300;
+    const yy=cw(t);
+    path+=(i?'L':'M')+x(t).toFixed(1)+' '+y(yy).toFixed(1)+' ';
+  }
+  $('tempCurve').setAttribute('d',path);
+  $('tempPoint').setAttribute('cx',x(T));$('tempPoint').setAttribute('cy',y(cwv));
+  $('tempPointLabel').setAttribute('x',x(T)+12);$('tempPointLabel').setAttribute('y',y(cwv)-10);
+  $('tempPointLabel').textContent=fmt(T,1)+' °C → '+fmt(cwv,1)+' m/s';
+  const g=$('tempGrid'); if(!g.dataset.done){
+    for(let T=10;T<=40;T+=5){
+      const xx=x(T);
+      const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+      ln.setAttribute('x1',xx);ln.setAttribute('x2',xx);ln.setAttribute('y1',55);ln.setAttribute('y2',280);g.appendChild(ln);
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',xx);txt.setAttribute('y',300);txt.setAttribute('text-anchor','middle');txt.setAttribute('font-size','12');txt.textContent=T;svg.appendChild(txt);
+    }
+    for(let v=1450;v<=1560;v+=20){
+      const yy=y(v);
+      const ln=document.createElementNS('http://www.w3.org/2000/svg','line');
+      ln.setAttribute('x1',90);ln.setAttribute('x2',970);ln.setAttribute('y1',yy);ln.setAttribute('y2',yy);g.appendChild(ln);
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',80);txt.setAttribute('y',yy+4);txt.setAttribute('text-anchor','end');txt.setAttribute('font-size','12');txt.textContent=v;svg.appendChild(txt);
+    }
+    g.dataset.done='1';
+  }
+}
+function colorScale(v,min,max,type){
+  const p=clamp((v-min)/(max-min),0,1);
+  let r,g,b;
+  if(type==='speed'){
+    r=Math.round(30+210*p); g=Math.round(120+60*(1-Math.abs(p-.5)*2)); b=Math.round(220-180*p);
+  } else {
+    r=Math.round(50+220*p); g=Math.round(190-140*p); b=Math.round(90-70*p);
+  }
+  return `rgb(${r},${g},${b})`;
+}
+function drawMap(svgId,title,unit,base,spread,type,inh){
+  const svg=$(svgId);
+  svg.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  function add(name,attrs,text){
+    const el=document.createElementNS(ns,name);
+    for(const k in attrs) el.setAttribute(k,attrs[k]);
+    if(text!==undefined) el.textContent=text;
+    svg.appendChild(el); return el;
+  }
+  add('rect',{x:10,y:10,width:450,height:330,rx:16,fill:'#fff',stroke:'#d7dfef'});
+  add('text',{x:235,y:38,'text-anchor':'middle','font-size':18,'font-weight':900},title);
+  const n=12, x0=60,y0=65, cell=20, gap=2;
+  let vals=[];
+  for(let j=0;j<n;j++){
+    for(let i=0;i<n;i++){
+      const dx=(i-5.5)/5.5, dy=(j-5.5)/5.5;
+      const spot1=Math.exp(-((dx-.25)**2+(dy+.2)**2)/.12);
+      const spot2=Math.exp(-((dx+.35)**2+(dy-.25)**2)/.09);
+      const wave=Math.sin(i*.9+j*.55)*.35;
+      vals.push(base + spread*inh*(spot1 - .8*spot2 + wave));
+    }
+  }
+  const min=Math.min(...vals), max=Math.max(...vals);
+  vals.forEach((v,idx)=>{
+    const i=idx%n,j=Math.floor(idx/n);
+    add('rect',{x:x0+i*(cell+gap),y:y0+j*(cell+gap),width:cell,height:cell,rx:3,fill:colorScale(v,min,max,type)});
+  });
+  add('text',{x:190,y:350,'text-anchor':'middle','font-size':13,fill:'#64748b'},`average ≈ ${fmt(base, type==='speed'?0:1)} ${unit}`);
+  // colorbar
+  for(let k=0;k<80;k++){
+    add('rect',{x:360,y:70+k*2.4,width:20,height:2.5,fill:colorScale(min+(max-min)*(1-k/79),min,max,type)});
+  }
+  add('text',{x:390,y:78,'font-size':12},fmt(max,type==='speed'?0:1));
+  add('text',{x:390,y:262,'font-size':12},fmt(min,type==='speed'?0:1));
+  add('text',{x:390,y:285,'font-size':12,fill:'#64748b'},unit);
+}
+function update(){
+  const T=+$('temp').value, Lmm=+$('dist').value, dmm=+$('thick').value, cs=+$('speed').value, att=+$('atten').value, inh=+$('inhom').value;
+  const cwv=cw(T);
+  const L=Lmm/1000, d=dmm/1000;
+  const t0=L/cwv;
+  const t1=(L-d)/cwv + d/cs;
+  const dt=t1-t0;
+  const dcm=dmm/10;
+  const amp=Math.pow(10, -(att*dcm)/20);
+  $('tempVal').textContent=fmt(T,1)+' °C';
+  $('distVal').textContent=fmt(Lmm,0)+' mm';
+  $('thickVal').textContent=fmt(dmm,1)+' mm';
+  $('speedVal').textContent=fmt(cs,0)+' m/s';
+  $('attVal').textContent=fmt(att,1)+' dB/cm';
+  $('inhVal').textContent=fmt(inh,2);
+  $('miniTemp').textContent=fmt(T,1)+'°';
+  $('cwM').innerHTML=fmt(cwv,1)+' <span style="font-size:13px">m/s</span>';
+  $('t0M').innerHTML=fmt(t0*1e6,2)+' <span style="font-size:13px">µs</span>';
+  $('t1M').innerHTML=st.mode==='sample'?fmt(t1*1e6,2)+' <span style="font-size:13px">µs</span>':'—';
+  $('dtM').innerHTML=st.mode==='sample'?fmt(dt*1e6,3)+' <span style="font-size:13px">µs</span>':'—';
+  $('ampM').innerHTML=st.mode==='sample'?fmt(amp*100,1)+' <span style="font-size:13px">%</span>':'—';
+  let out='reference mode';
+  if(st.mode==='sample'){
+    out = dt<0 ? 'signal arrived earlier' : 'signal arrived later';
+  }
+  $('outM').textContent=out;
+  $('explain').innerHTML = st.mode==='sample'
+    ? `With the current parameters, the sample is ${cs>cwv?'faster than':'slower than'}  water. Therefore, Δt ${dt<0?'отрицательная: сигнал through sample приходит раньше опорного':'положительная: сигнал through sample приходит позже опорного'}. Greater attenuation and thickness reduce the amplitude of s₁(t).`
+    : `Сейчас между Tx и Rx только water. Записывается опорный сигнал s₀(t), с которым потом сравнивается сигнал through sample.`;
+
+  $('sampleRect').style.opacity = st.mode==='sample' ? 1 : .12;
+  $('holderC').style.opacity = st.mode==='sample' ? 1 : .7;
+  updateSignals(t0*1e6, t1*1e6, amp);
+  updateTempPlot(T,cwv);
+  drawMap('speedMap','Velocity Map','m/s',cs,90,'speed',inh);
+  drawMap('attenMap','Attenuation Map','dB/cm',att,1.8,'atten',inh);
+}
+$('modeWater').onclick=()=>{st.mode='water';$('modeWater').classList.add('active');$('modeSample').classList.remove('active');update();}
+$('modeSample').onclick=()=>{st.mode='sample';$('modeSample').classList.add('active');$('modeWater').classList.remove('active');update();}
+controls.forEach(c=>c.addEventListener('input',update));
+
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    st.tab=btn.dataset.tab;
+    document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b===btn));
+    ['signals','tempplot','maps'].forEach(t=>$(t+'Tab').classList.toggle('hidden',t!==st.tab));
+    update();
+  })
+});
+
+const tip=$('tooltip');
+document.querySelectorAll('.comp').forEach(el=>{
+  el.addEventListener('mousemove',e=>{tip.style.display='block';tip.style.left=e.clientX+14+'px';tip.style.top=e.clientY+14+'px';tip.textContent=el.dataset.tip;});
+  el.addEventListener('mouseleave',()=>tip.style.display='none');
+});
+update();
+</script>
+</body>
+</html>
