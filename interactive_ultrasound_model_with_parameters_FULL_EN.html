@@ -244,7 +244,7 @@ svg{width:100%;height:auto;display:block}
           <text x="820" y="82" fill="#0b57d0" font-size="16" font-weight="800">s₀(t) — water</text>
           <text x="820" y="108" fill="#707b91" font-size="16" font-weight="800">s₁(t) — through sample</text>
         </svg>
-        <p class="note">Если скорость в образце выше скорости в воде, сигнал through sample приходит раньше. Если ниже — позже. При большем затухании амплитуда s₁(t) уменьшается.</p>
+        <p class="note">If the speed in the sample is higher than the speed in the water, the signal through sample arrives earlier. If it is lower, it arrives later. With greater attenuation, the amplitude s₁(t) decreasing. </p>
       </div>
 
       <div id="tempplotTab" class="hidden">
@@ -423,8 +423,8 @@ function update(){
   }
   $('outM').textContent=out;
   $('explain').innerHTML = st.mode==='sample'
-    ? `With the current parameters, the sample is ${cs>cwv?'faster than':'slower than'}  water. Therefore, Δt ${dt<0?'отрицательная: сигнал through sample приходит раньше опорного':'положительная: сигнал through sample приходит позже опорного'}. Greater attenuation and thickness reduce the amplitude of s₁(t).`
-    : `Сейчас между Tx и Rx только water. Записывается опорный сигнал s₀(t), с которым потом сравнивается сигнал through sample.`;
+    ? `With the current parameters, the sample is ${cs>cwv?'faster than':'slower than'}  water. Therefore, Δt ${dt<0?'negative: the through sample signal arrives before the reference signal':'positive: the through sample signal arrives later than the reference signal'}. Greater attenuation and thickness reduce the amplitude of s₁(t).`
+    : `Now between Tx and Rx only water. A reference signal is recorded s₀(t), which is then compared to the through sample signal.`;
 
   $('sampleRect').style.opacity = st.mode==='sample' ? 1 : .12;
   $('holderC').style.opacity = st.mode==='sample' ? 1 : .7;
